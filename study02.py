@@ -207,8 +207,8 @@ classification_file_name = "classification.csv"
 test_file_name = "test_data.csv"
 #classification_file_name = st.text_input("公開番号と分類を記載したCSVを指定してください",value=classification_file_name)
 #test_file_name = st.text_input("分類対象の公開番号を記載したCSVを指定してください",value=test_file_name)
-#df_classification = pd.read_csv(classification_file_name)
-#df_test_data = pd.read_csv(test_file_name)
+df_classification = pd.read_csv(classification_file_name)
+df_test_data = pd.read_csv(test_file_name)
 
 ###### CSVアップロード
 uploaded_file1 = st.file_uploader(f"公開番号と分類を記載したCSVを指定してください ({classification_file_name})", type="csv", key="uploaded_file1")
