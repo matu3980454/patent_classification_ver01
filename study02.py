@@ -81,10 +81,26 @@ if 'open_state' not in st.session_state:
     st.session_state.open_state = False
 
 ####################  DB  #####################
-set_pkl_file_1 = "Pana_Denso_出願過去20年.pkl"
+##set_pkl_file_1 = "Pana_Denso_出願過去20年.pkl"
+
+# 分割されたファイルのリスト
+N=5
+file_list = [f'chunk_{i}.pkl' for i in range(N)]
+
+# 各ファイルを読み込んでリストに追加
+loaded_chunks = []
+for file_name in file_list:
+    with open(file_name, 'rb') as f:
+        loaded_chunks.append(pickle.load(f))
+
+# チャンクを結合して元のDataFrameを再構築
+all_df_tmp1 = pd.concat(loaded_chunks, ignore_index=True)
+
+# 結果のDataFrameを表示
+#print(len(all_df_tmp1))
 
 #################　pickle読込み ################
-all_df_tmp1   = pd.read_pickle(set_pkl_file_1)
+#all_df_tmp1   = pd.read_pickle(set_pkl_file_1)
 all_vector_df = all_df_tmp1['embedding_v1'].tolist()
 vectors       = np.array(all_df_tmp1['embedding_v1'].tolist())
 
