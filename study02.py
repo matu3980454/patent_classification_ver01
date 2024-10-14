@@ -295,7 +295,7 @@ if load_flg3:
         most_similar_pub_nums.append(best_match_pub_num)
         most_similar_categories.append(best_match_category)
         most_similarities.append(max_similarity if max_similarity != -1 else np.nan)
-        clear_output(wait=True)
+        #clear_output(wait=True)
 
 
     # B に新しい列を追加
