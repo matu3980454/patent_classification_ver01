@@ -10,7 +10,7 @@ import random
 from sklearn.metrics.pairwise import cosine_similarity
 import webbrowser
 from scipy.spatial.distance import cosine
-import time
+#import time
 
 #################　関数　#################
 def extract_matching_indices(df, columns, strings_in):
@@ -271,7 +271,7 @@ if load_flg3:
 
         #progress_bar
         progress_bar.progress(int(cnt/len(B)*100))
-        time.sleep(0.05)
+        #time.sleep(0.05)
         cnt=cnt+1
 
         # B の publication_number に対応する A のベクトルを取得
