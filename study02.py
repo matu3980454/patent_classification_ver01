@@ -142,24 +142,29 @@ def classification_cosine_similarity(A,B,threshold):
         best_match_category = None
 
         # B の publication_number に対応する A のベクトルを取得
-        b_vector = A_ORG.loc[A_ORG['publication_number'] == row['publication_number'], 'embedding_v1'].values[0]
-        print(index+1,"/",len(B))
+        if (A_ORG['publication_number'] == row['publication_number']).any():
+            b_vector = A_ORG.loc[A_ORG['publication_number'] == row['publication_number'], 'embedding_v1'].values[0]
+            print(index+1,"/",len(B))
 
-        # A の各ベクトルデータとのコサイン距離を計算
-        for _, a_row in A.iterrows():
-            if row['publication_number'] == a_row['publication_number'] or pd.isna(a_row['classification']):
-                continue  # Bのpublication_numberがAと同じ場合、またはカテゴリがNaNの場合はスキップ            
-            similarity = 1 - cosine(b_vector, a_row['embedding_v1'])
+            # A の各ベクトルデータとのコサイン距離を計算
+            for _, a_row in A.iterrows():
+                if row['publication_number'] == a_row['publication_number'] or pd.isna(a_row['classification']):
+                    continue  # Bのpublication_numberがAと同じ場合、またはカテゴリがNaNの場合はスキップ            
+                similarity = 1 - cosine(b_vector, a_row['embedding_v1'])
 
-            if similarity >= threshold and similarity > max_similarity:
-                max_similarity = similarity
-                best_match_pub_num = a_row['publication_number']
-                best_match_category = a_row['classification']
+                if similarity >= threshold and similarity > max_similarity:
+                    max_similarity = similarity
+                    best_match_pub_num = a_row['publication_number']
+                    best_match_category = a_row['classification']
 
-        most_similar_pub_nums.append(best_match_pub_num)
-        most_similar_categories.append(best_match_category)
-        most_similarities.append(max_similarity if max_similarity != -1 else np.nan)
-        #clear_output(wait=True)
+            most_similar_pub_nums.append(best_match_pub_num)
+            most_similar_categories.append(best_match_category)
+            most_similarities.append(max_similarity if max_similarity != -1 else np.nan)
+            #clear_output(wait=True)
+        else:
+            most_similar_pub_nums.append('DBに案件が存在しません')
+            most_similar_categories.append('DBに案件が存在しません')
+            most_similarities.append(0)
         
     return most_similar_pub_nums,most_similar_categories,most_similarities
 ###############　session_state　###############
