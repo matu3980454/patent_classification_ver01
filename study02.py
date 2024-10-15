@@ -10,6 +10,8 @@ import random
 from sklearn.metrics.pairwise import cosine_similarity
 import webbrowser
 from scipy.spatial.distance import cosine
+from sklearn.metrics.pairwise import cosine_distances
+#from IPython.display import clear_output
 #import time
 
 #################　関数　#################
@@ -74,6 +76,92 @@ def PCA_2D_plot(dict_plot,data):
 def make_clickable(url):
     return f'<a href="{url}" target="_blank">Link</a>'
 
+# 重心計算の関数
+def calculate_centroid(vectors):
+    return np.mean(vectors, axis=0)
+
+# 分類ごとに重心を計算し、しきい値処理を行う関数
+def filter_by_cosine_threshold(A, threshold):
+    grouped = A.groupby('classification')
+    updated_embeddings = []
+    
+    for classification, group in grouped:
+        vectors = np.array(group['embedding_v1'].tolist())
+        publication_numbers = group['publication_number'].tolist()
+        
+        # 初回の重心を計算
+        centroid = calculate_centroid(vectors)
+        
+        while True:
+            # 重心からのコサイン距離を計算
+            distances = cosine_distances([centroid], vectors)[0]
+            
+            # しきい値以内のベクトルのみを抽出
+            within_threshold = distances <= threshold
+            filtered_vectors = vectors[within_threshold]
+            filtered_publication_numbers = [pub for pub, include in zip(publication_numbers, within_threshold) if include]
+            
+            # 重心を再計算
+            new_centroid = calculate_centroid(filtered_vectors)
+            
+            # 重心が更新されない、またはすべてのベクトルがしきい値以内に収まる場合は終了
+            if np.array_equal(new_centroid, centroid) or len(filtered_vectors) == len(vectors):
+                centroid = new_centroid
+                break
+            
+            # 重心の更新と、ベクトル集合の更新
+            centroid = new_centroid
+            vectors = filtered_vectors
+            publication_numbers = filtered_publication_numbers
+        
+        # 重心に最もコサイン距離が近い行のpublication_numberを取得
+        distances = cosine_distances([centroid], vectors)[0]
+        closest_index = np.argmin(distances)
+        closest_publication_number = publication_numbers[closest_index]
+        
+        # 最終的な重心をその分類のベクトルデータとして保存
+        updated_embeddings.append({'classification': classification, 'embedding_v1': centroid, 'publication_number': closest_publication_number})
+    
+    # DataFrameとして結果を返す
+    return pd.DataFrame(updated_embeddings)
+
+# 分類が付与された最寄りの特許を検索し、コサイン類似度がthreshold以上ならその分類を採用
+def classification_cosine_similarity(A,B,threshold):
+    # 結果を保持するリスト
+    most_similar_pub_nums = []
+    most_similar_categories = []
+    most_similarities = []
+    A_ORG = A
+    A = filter_by_cosine_threshold(A,threshold)
+    
+
+    # B の各行についてコサイン距離を計算して、最も類似するものを見つける
+    for index, row in B.iterrows():
+        max_similarity      = -1  # 最も高いコサイン類似度を格納する変数
+        best_match_pub_num  = None
+        best_match_category = None
+
+        # B の publication_number に対応する A のベクトルを取得
+        b_vector = A_ORG.loc[A_ORG['publication_number'] == row['publication_number'], 'embedding_v1'].values[0]
+        print(index+1,"/",len(B))
+
+        # A の各ベクトルデータとのコサイン距離を計算
+        for _, a_row in A.iterrows():
+            if row['publication_number'] == a_row['publication_number'] or pd.isna(a_row['classification']):
+                continue  # Bのpublication_numberがAと同じ場合、またはカテゴリがNaNの場合はスキップ            
+            similarity = 1 - cosine(b_vector, a_row['embedding_v1'])
+
+            if similarity >= threshold and similarity > max_similarity:
+                max_similarity = similarity
+                best_match_pub_num = a_row['publication_number']
+                best_match_category = a_row['classification']
+
+        most_similar_pub_nums.append(best_match_pub_num)
+        most_similar_categories.append(best_match_category)
+        most_similarities.append(max_similarity if max_similarity != -1 else np.nan)
+        #clear_output(wait=True)
+        
+    return most_similar_pub_nums,most_similar_categories,most_similarities
 ###############　session_state　###############
 if 'open_state' not in st.session_state:
     st.session_state.open_state = False
@@ -113,6 +201,7 @@ if st.session_state.open_state == False:
     st.write("**～～～対象データ～～～**")
     st.write("**日本／パナソニックorデンソーのみ／過去20年**")
     #st.write("Streamlit version:", st.__version__)
+    #st.write(time.__version__)
     st.write("**（機能１）公開番号を指定して類似特許を検出します**")
     st.write("データベースの読み込み件数",len(all_df_tmp1))
     st.write("\n\n")
@@ -250,61 +339,15 @@ if load_flg3:
     ############## 分類処理　##############
     A = df_merged
     B = df_test_data
+    threshold = 0.8 # 所定の閾値を設定
 
-    # 所定の閾値を設定
-    threshold = 0.8
-
-    # 結果を保持するリスト
-    most_similar_pub_nums = []
-    most_similar_categories = []
-    most_similarities = []
-
-    # B の各行についてコサイン距離を計算して、最も類似するものを見つける
-    cnt=1
-    st.write("総処理件数",len(B))
-    progress_bar = st.progress(0)
-
-    for index, row in B.iterrows():
-        max_similarity      = -1  # 最も高いコサイン類似度を格納する変数
-        best_match_pub_num  = None
-        best_match_category = None
-
-        #progress_bar
-        progress_bar.progress(int(cnt/len(B)*100))
-        #time.sleep(0.05)
-        cnt=cnt+1
-
-        # B の publication_number に対応する A のベクトルを取得
-        b_vector = A.loc[A['publication_number'] == row['publication_number'], 'embedding_v1'].values[0]
-        
-        # A の各ベクトルデータとのコサイン距離を計算
-        for _, a_row in A.iterrows():
-            #if a_row['publication_number'] == a_row['publication_number']:
-            #   continue  # Bのpublication_numberがAと同じ場合はスキップ
-            if row['publication_number'] == a_row['publication_number'] or pd.isna(a_row['classification']):
-                continue  # Bのpublication_numberがAと同じ場合、またはカテゴリがNaNの場合はスキップ
-                
-            similarity = 1 - cosine(b_vector, a_row['embedding_v1'])
-            #similarity = cosine_similarity([a_row['embedding_v1']], [a_row['embedding_v1']])[0][0]
-            
-            if similarity >= threshold and similarity > max_similarity:
-                max_similarity = similarity
-                best_match_pub_num = a_row['publication_number']
-                best_match_category = a_row['classification']
-
-        most_similar_pub_nums.append(best_match_pub_num)
-        most_similar_categories.append(best_match_category)
-        most_similarities.append(max_similarity if max_similarity != -1 else np.nan)
-        #clear_output(wait=True)
-
+    most_similar_pub_nums,most_similar_categories,most_similarities = classification_cosine_similarity(A,B,threshold)
 
     # B に新しい列を追加
-    st.write("処理終了")
+    print("END!")
     B['most_similar_publication_number'] = most_similar_pub_nums
     B['classification'] = most_similar_categories
     B['cosine_similarity'] = most_similarities
 
-    #print(B)
-    #B.to_csv('output.csv', index=False)
     csv_text = B.to_csv(index=False)
     st.text_area("結果をCSVでコピーしてください", csv_text, height=200)
